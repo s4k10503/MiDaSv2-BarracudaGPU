@@ -1,0 +1,12 @@
+// PostprocessingComputeShader.compute
+#pragma kernel Postprocess
+
+StructuredBuffer<float> InputTensor;
+RWTexture2D<float4> OutputTexture;
+
+[numthreads(16, 16, 1)]
+void Postprocess (uint3 id : SV_DispatchThreadID)
+{
+    float value = InputTensor[id.x + id.y * 256] / 1000.0f;
+    OutputTexture[id.xy] = float4(value, value, value, 1.0f);
+}
