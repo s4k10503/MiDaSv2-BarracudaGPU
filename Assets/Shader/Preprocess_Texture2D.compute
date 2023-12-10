@@ -15,9 +15,11 @@ void Preprocess_Texture2D(uint3 id : SV_DispatchThreadID)
     int ty = id.y * textureHeight / Size;
     float4 color = InputTexture[float2(ty, tx)];
 
-    // インデックス: (バッチ番号 * 高さ * 幅 * チャネル数) + (y座標 * 幅 * チャネル数) + (x座標 * チャネル数) + チャネル
+    // Index: (batch number * height * width * number of channels)
+    //        + (y coordinate * width * number of channels)
+    //        + (x coordinate * number of channels) + channels
     uint tensorIndex = id.y * Size * 3 + id.x * 3;
-    OutputTensor[tensorIndex] = color.r;      // チャネル = 0
-    OutputTensor[tensorIndex + 1] = color.g;  // チャネル = 1
-    OutputTensor[tensorIndex + 2] = color.b;  // チャネル = 2
+    OutputTensor[tensorIndex] = color.r;      // channel = 0
+    OutputTensor[tensorIndex + 1] = color.g;  // channel = 1
+    OutputTensor[tensorIndex + 2] = color.b;  // channel = 2
 }

@@ -1,4 +1,4 @@
-// PostprocessingComputeShader.compute
+// Postprocess
 #pragma kernel Postprocess
 
 StructuredBuffer<float> InputTensor;

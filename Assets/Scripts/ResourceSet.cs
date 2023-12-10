@@ -6,7 +6,7 @@ using Unity.Barracuda;
                  menuName = "ScriptableObjects/MiDaSv2 Resource Set")]
 public sealed class ResourceSet : ScriptableObject
 {
-    public NNModel model;
-    public ComputeShader preprocess;
-    public ComputeShader postprocess;
+    public NNModel Model;
+    public ComputeShader Preprocess;
+    public ComputeShader Postprocess;
 }

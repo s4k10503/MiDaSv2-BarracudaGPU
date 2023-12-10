@@ -13,5 +13,19 @@ namespace MiDaSv2
             renderTexture.Create();
             return renderTexture;
         }
+
+        public struct ThreadSize
+        {
+            public uint X { get; }
+            public uint Y { get; }
+            public uint Z { get; }
+
+            public ThreadSize(uint x, uint y, uint z) : this()
+            {
+                X = x;
+                Y = y;
+                Z = z;
+            }
+        }
     }
 }
