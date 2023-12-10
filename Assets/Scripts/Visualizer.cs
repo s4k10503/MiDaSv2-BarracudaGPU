@@ -5,21 +5,22 @@ using Klak.TestTools;
 
 public class Visualizer : MonoBehaviour
 {
-    [SerializeField] ResourceSet _resources = null;
-    [SerializeField] RawImage _previewSource = null;
-    [SerializeField] RawImage _previewDepth = null;
-    [SerializeField] ImageSource _source = null;
+    [SerializeField] private ResourceSet _resources = null;
+    [SerializeField] private RawImage _previewSource = null;
+    [SerializeField] private RawImage _previewDepth = null;
+    [SerializeField] private ImageSource _source = null;
 
     private RenderTexture _renderTexture;
-    RunInference _runInference;
+    private RunInference _runInference;
 
-    void Start()
+    private void Start()
     {
         _runInference = new RunInference(_resources);
         _renderTexture = new RenderTexture(_source.Texture.width, _source.Texture.height, 24);
+        _renderTexture.Create();
     }
 
-    void Update()
+    private void Update()
     {
         Graphics.Blit(_source.Texture, _renderTexture);
         _runInference.ProcessImage(_renderTexture);
@@ -28,9 +29,19 @@ public class Visualizer : MonoBehaviour
         _previewDepth.texture = _runInference.DepthTexture;
     }
 
-    private void OnDisable()
+    private void OnDestroy()
     {
-        _runInference.Dispose();
-        _renderTexture.Release();
+        if (_runInference != null)
+        {
+            _runInference.Dispose();
+            _runInference = null;
+        }
+
+        if (_renderTexture != null)
+        {
+            _renderTexture.Release();
+            Destroy(_renderTexture);
+            _renderTexture = null;
+        }
     }
 }

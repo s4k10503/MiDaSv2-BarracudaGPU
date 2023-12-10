@@ -6,16 +6,17 @@ namespace MiDaSv2
 {
     public class RunInference : IDisposable
     {
-        private IWorker worker;
-        private ComputeBuffer inputBuffer;
-        private ComputeBuffer outputBuffer;
-        private ResourceSet resources;
         public RenderTexture DepthTexture { get; private set; }
-        ThreadSize _threadSize;
 
-        private const int inputWidth = 256;
-        private const int inputHeight = 256;
-        private const int inputChannels = 3;
+        private IWorker _worker;
+        private ComputeBuffer _inputBuffer;
+        private ComputeBuffer _outputBuffer;
+        private ResourceSet _resources;
+        private Utils.ThreadSize _threadSize;
+
+        private const int _inputWidth = 256;
+        private const int _inputHeight = 256;
+        private const int _inputChannels = 3;
 
         public RunInference(ResourceSet resourceSet)
         {
@@ -24,49 +25,65 @@ namespace MiDaSv2
 
         private void Initialize(ResourceSet resourceSet)
         {
-            resources = resourceSet;
+            _resources = resourceSet;
 
-            var model = ModelLoader.Load(resources.model);
-            worker = WorkerFactory.CreateWorker(WorkerFactory.Type.ComputePrecompiled, model);
+            var model = ModelLoader.Load(_resources.Model);
+            _worker = WorkerFactory.CreateWorker(WorkerFactory.Type.ComputePrecompiled, model);
 
-            inputBuffer = new ComputeBuffer(1 * inputWidth * inputHeight * inputChannels, sizeof(float));
-            outputBuffer = new ComputeBuffer(1 * inputWidth * inputHeight, sizeof(float));
+            _inputBuffer = new ComputeBuffer(1 * _inputWidth * _inputHeight * _inputChannels, sizeof(float));
+            _outputBuffer = new ComputeBuffer(1 * _inputWidth * _inputHeight, sizeof(float));
 
-            DepthTexture = Utils.CreateRenderTexture(inputWidth, inputHeight);
+            DepthTexture = Utils.CreateRenderTexture(_inputWidth, _inputHeight);
+        }
+
+        private Utils.ThreadSize GetThreadSize(ComputeShader shader)
+        {
+            shader.GetKernelThreadGroupSizes(0, out uint x, out uint y, out uint z);
+            return new Utils.ThreadSize(x, y, z);
         }
 
         public void ProcessImage(RenderTexture sourceTexture)
         {
-            // Preprocessing
-            var preprocess = resources.preprocess;
-            preprocess.GetKernelThreadGroupSizes(0, out _threadSize.x, out _threadSize.y, out _threadSize.z);
-            preprocess.SetTexture(0, "InputTexture", sourceTexture);
-            preprocess.SetBuffer(0, "OutputTensor", inputBuffer);
-            preprocess.SetInt("Size", inputWidth);
-            preprocess.Dispatch(0, inputWidth / (int)_threadSize.x, inputHeight / (int)_threadSize.y, (int)_threadSize.z);
+            PreprocessImage(sourceTexture);
+            PerformInference();
+            PostprocessImage();
+        }
 
-            // Inference
-            using (var tensor = new Tensor(1, inputWidth, inputHeight, inputChannels, inputBuffer))
+        private void PreprocessImage(RenderTexture sourceTexture)
+        {
+            var preprocess = _resources.Preprocess;
+            _threadSize = GetThreadSize(preprocess);
+            preprocess.SetTexture(0, "InputTexture", sourceTexture);
+            preprocess.SetBuffer(0, "OutputTensor", _inputBuffer);
+            preprocess.SetInt("Size", _inputWidth);
+            preprocess.Dispatch(0, _inputWidth / (int)_threadSize.X, _inputHeight / (int)_threadSize.Y, (int)_threadSize.Z);
+        }
+
+        private void PerformInference()
+        {
+            using (var tensor = new Tensor(1, _inputWidth, _inputHeight, _inputChannels, _inputBuffer))
             {
-                worker.Execute(tensor);
+                _worker.Execute(tensor);
             }
 
-            var output = worker.PeekOutput();
-            outputBuffer.SetData(output.AsFloats());
+            var output = _worker.PeekOutput();
+            _outputBuffer.SetData(output.AsFloats());
+        }
 
-            // Postprocessing
-            var postprocess = resources.postprocess;
-            postprocess.GetKernelThreadGroupSizes(0, out _threadSize.x, out _threadSize.y, out _threadSize.z);
-            postprocess.SetBuffer(0, "InputTensor", outputBuffer);
+        private void PostprocessImage()
+        {
+            var postprocess = _resources.Postprocess;
+            _threadSize = GetThreadSize(postprocess);
+            postprocess.SetBuffer(0, "InputTensor", _outputBuffer);
             postprocess.SetTexture(0, "OutputTexture", DepthTexture);
-            postprocess.Dispatch(0, inputWidth / (int)_threadSize.x, inputHeight / (int)_threadSize.y, (int)_threadSize.z);
+            postprocess.Dispatch(0, _inputWidth / (int)_threadSize.X, _inputHeight / (int)_threadSize.Y, (int)_threadSize.Z);
         }
 
         public void Dispose()
         {
-            worker.Dispose();
-            inputBuffer.Dispose();
-            outputBuffer.Dispose();
+            _worker?.Dispose();
+            _inputBuffer?.Dispose();
+            _outputBuffer?.Dispose();
 
             if (DepthTexture != null)
             {
